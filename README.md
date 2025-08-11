@@ -158,6 +158,24 @@ GET /api/regions     - Regional cost distribution analysis
 - **Cost Explorer API**: Rate limited to prevent excessive billing charges
 - **Browser caching**: Dashboard caches data for 5 minutes to reduce API calls
 
+## 📋 Development Journey
+
+This project was built systematically over 6 weeks across three phases. Each phase documentation includes detailed technical implementation, business value delivered, and skills developed:
+
+### Phase Documentation
+
+- **[Phase 1: Personal Cost Tracker](./docs/phase1-success.md)** - Foundation setup with Lambda functions and basic cost tracking
+- **[Phase 2: Cost Analysis & Recommendations](./docs/phase2-success.md)** - Advanced analytics with service/regional breakdowns  
+- **[Phase 3: Dashboard & Reporting](./docs/phase3-success.md)** - Professional web dashboard with real-time visualizations
+
+### Project Progression
+
+```text
+Week 1-2: Foundation     → Cost tracking infrastructure
+Week 3-4: Intelligence   → Data analysis and API development  
+Week 5-6: Presentation   → Stakeholder dashboard and reporting
+```
+
 ## 🔒 Security Notes
 
 - **CORS enabled** for cross-origin dashboard access
