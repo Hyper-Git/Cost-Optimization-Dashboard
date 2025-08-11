@@ -6,6 +6,14 @@ A real-time web dashboard for monitoring and analyzing AWS spending patterns, bu
 
 ![Architecture Diagram](docs/ArchitectureDiagram.png)
 
+## 📖 Spending Overview
+
+![Architecture Diagram](docs/Spending-Overview.png)
+
+## Cost Analysis
+
+![Cost Analysis](docs/Cost-Analysis.png)
+
 ## 🎯 Business Problem Solved
 
 Many small businesses and developers struggle with AWS cost visibility:
