@@ -1,0 +1,1 @@
+{"statusCode": 500, "body": "{\"error\": \"An error occurred (InvalidParameter) when calling the Publish operation: Invalid parameter: TopicArn Reason: An ARN must have at least 6 elements, not 1\"}"}

@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AWS Cost Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f7f9fc;
+      color: #2d3748;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    .sidebar {
+      width: 220px;
+      background: #1a202c;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 0;
+    }
+
+    .sidebar h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .nav {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 20px;
+      color: #cbd5e0;
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .nav a:hover {
+      background: #2d3748;
+      color: white;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .navbar {
+      background: white;
+      padding: 15px 30px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .navbar h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1a202c;
+    }
+
+    .refresh-btn {
+      background: #3182ce;
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .refresh-btn:hover {
+      background: #2b6cb0;
+    }
+
+    .dashboard-row {
+      display: flex;
+      gap: 20px;
+      padding: 20px 30px;
+      overflow-x: auto;
+    }
+
+    .card {
+      flex: 1 0 300px;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 25px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #2d3748;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 8px;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 6px 0;
+      padding: 6px 10px;
+      background: #f1f5f9;
+      border-radius: 6px;
+    }
+
+    .cost-amount {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #2b6cb0;
+    }
+
+    .metric-value {
+      font-weight: 600;
+      color: #4a5568;
+    }
+
+    .percentage {
+      background: #3182ce;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 220px;
+      margin-top: 12px;
+    }
+
+    .loading {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      padding: 15px;
+    }
+
+    .error {
+      color: #e74c3c;
+      background: rgba(231, 76, 60, 0.1);
+      padding: 12px;
+      border-radius: 6px;
+      border-left: 4px solid #e74c3c;
+    }
+
+    footer {
+      text-align: center;
+      padding: 15px;
+      font-size: 0.8rem;
+      color: #718096;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>💰 AWS Dashboard</h2>
+    <div class="nav">
+      <a href="#current-costs-card">📊 Costs</a>
+      <a href="#weekly-costs-card">📈 Trends</a>
+      <a href="#service-breakdown-card">🔧 Services</a>
+      <a href="#regional-breakdown-card">🌍 Regions</a>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="navbar">
+      <h1>Spending Overview</h1>
+      <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh</button>
+    </div>
+
+    <div class="dashboard-row">
+      <div class="card" id="current-costs-card" style="border-left: 4px solid #38b2ac;">
+        <h3>📊 Current Costs</h3>
+        <div id="current-costs" class="loading">Loading current costs...</div>
+      </div>
+      <div class="card" id="weekly-costs-card" style="border-left: 4px solid #3182ce;">
+        <h3>📈 Weekly Trends</h3>
+        <div id="weekly-costs" class="loading">Loading weekly data...</div>
+        <div class="chart-container">
+          <canvas id="weeklyChart"></canvas>
+        </div>
+      </div>
+      <div class="card" id="service-breakdown-card" style="border-left: 4px solid #805ad5;">
+        <h3>🔧 Top Services</h3>
+        <div id="service-breakdown" class="loading">Loading service data...</div>
+      </div>
+      <div class="card" id="regional-breakdown-card" style="border-left: 4px solid #ed8936;">
+        <h3>🌍 Regional Costs</h3>
+        <div id="regional-breakdown" class="loading">Loading regional data...</div>
+      </div>
+    </div>
+
+    <footer>
+      <span id="last-refresh">Last refresh: --</span>
+    </footer>
+  </div>
+
+  <script>
+    const API_URL = 'https://u91tjvw9n5.execute-api.eu-west-1.amazonaws.com/prod';
+    let weeklyChart = null;
+
+    async function loadAllData() {
+      loadCurrentCosts();
+      loadWeeklyCosts();
+      loadServiceBreakdown();
+      loadRegionalBreakdown();
+      document.getElementById('last-refresh').textContent =
+        'Last refresh: ' + new Date().toLocaleString();
+    }
+
+    async function loadCurrentCosts() {
+      try {
+        const response = await fetch(`${API_URL}/api/current`);
+        const data = await response.json();
+        const html = `
+          <div class="metric">
+            <span>Total Cost (2 days):</span>
+            <span class="cost-amount">$${data.total_cost.toFixed(4)}</span>
+          </div>
+          <div class="metric">
+            <span>Last Updated:</span>
+            <span class="metric-value">${new Date(data.last_updated).toLocaleString()}</span>
+          </div>`;
+        document.getElementById('current-costs').innerHTML = html;
+      } catch (error) {
+        document.getElementById('current-costs').innerHTML =
+          `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function loadWeeklyCosts() {
+      try {
+        const response = await fetch(`${API_URL}/api/weekly`);
+        const data = await response.json();
+        const html = `
+          <div class="metric">
+            <span>Weekly Total:</span>
+            <span class="cost-amount">$${data.weekly_total.toFixed(4)}</span>
+          </div>
+          <div class="metric">
+            <span>Daily Average:</span>
+            <span class="metric-value">$${data.average_daily.toFixed(4)}</span>
+          </div>`;
+        document.getElementById('weekly-costs').innerHTML = html;
+        createWeeklyChart(data.daily_breakdown);
+      } catch (error) {
+        document.getElementById('weekly-costs').innerHTML =
+          `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    function createWeeklyChart(dailyData) {
+      const ctx = document.getElementById('weeklyChart').getContext('2d');
+      if (weeklyChart) weeklyChart.destroy();
+
+      weeklyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dailyData.map(item => new Date(item.date).toLocaleDateString()),
+          datasets: [{
+            label: 'Daily Cost ($)',
+            data: dailyData.map(item => item.cost),
+            borderColor: '#3182ce',
+            backgroundColor: 'rgba(49,130,206,0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return '$' + context.raw.toFixed(4);
+                }
+              }
+            },
+            legend: { display: false }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    async function loadServiceBreakdown() {
+      try {
+        const response = await fetch(`${API_URL}/api/services`);
+        const data = await response.json();
+        let html = `
+          <div class="metric">
+            <span>Total Weekly Cost:</span>
+            <span class="cost-amount">$${data.total_cost.toFixed(4)}</span>
+          </div>`;
+        data.services.forEach(service => {
+          html += `
+            <div class="metric">
+              <span>${service.service}</span>
+              <div>
+                <span class="metric-value">$${service.cost.toFixed(4)}</span>
+                <span class="percentage">${service.percentage.toFixed(1)}%</span>
+              </div>
+            </div>`;
+        });
+        document.getElementById('service-breakdown').innerHTML = html;
+      } catch (error) {
+        document.getElementById('service-breakdown').innerHTML =
+          `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    async function loadRegionalBreakdown() {
+      try {
+        const response = await fetch(`${API_URL}/api/regions`);
+        const data = await response.json();
+        let html = `
+          <div class="metric">
+            <span>Total Weekly Cost:</span>
+            <span class="cost-amount">$${data.total_cost.toFixed(4)}</span>
+          </div>`;
+        data.regions.forEach(region => {
+          html += `
+            <div class="metric">
+              <span>${region.region}</span>
+              <div>
+                <span class="metric-value">$${region.cost.toFixed(4)}</span>
+                <span class="percentage">${region.percentage.toFixed(1)}%</span>
+              </div>
+            </div>`;
+        });
+        document.getElementById('regional-breakdown').innerHTML = html;
+      } catch (error) {
+        document.getElementById('regional-breakdown').innerHTML =
+          `<div class="error">Error: ${error.message}</div>`;
+      }
+    }
+
+    window.addEventListener('load', loadAllData);
+  </script>
+</body>
+</html>

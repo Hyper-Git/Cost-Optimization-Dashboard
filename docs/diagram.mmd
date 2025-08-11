@@ -1,0 +1,70 @@
+graph TB
+    subgraph "User Interface"
+        UI[Web Dashboard, HTML/CSS/JavaScript, Chart.js Visualizations]
+    end
+
+    subgraph "AWS API Layer"
+        APIG[API Gateway, REST API, CORS Enabled, Endpoint: /api/*]
+    end
+
+    subgraph "Serverless Compute"
+        LAMBDA[Lambda Functions, cost-api Python 3.9, Real-time Processing]
+    end
+
+    subgraph "AWS Cost Services"
+        CE[Cost Explorer API, Real-time Billing Data, Service/Region Breakdown]
+        CUR[Cost & Usage Reports, Historical Data]
+    end
+
+    subgraph "Data Storage"
+        DDB[DynamoDB, Cost Data Storage, Historical Analysis]
+    end
+
+    subgraph "AWS Infrastructure"
+        IAM[IAM Roles, Cost Explorer Permissions, Lambda Execution Role]
+        CW[CloudWatch, Lambda Monitoring, API Gateway Logs]
+    end
+
+    %% User Flow
+    UI -->|HTTPS Requests| APIG
+    APIG -->|Invoke| LAMBDA
+    LAMBDA -->|Query| CE
+    LAMBDA -->|Store/Retrieve| DDB
+    LAMBDA -->|Access| CUR
+    
+    %% Security & Monitoring
+    IAM -.->|Permissions| LAMBDA
+    IAM -.->|Permissions| CE
+    LAMBDA -.->|Logs| CW
+    APIG -.->|Metrics| CW
+
+    %% API Endpoints
+    subgraph "API Endpoints"
+        EP1[GET /api/current, 2-day cost window]
+        EP2[GET /api/weekly, 7-day trends]
+        EP3[GET /api/services, Top 10 services]
+        EP4[GET /api/regions, Regional breakdown]
+    end
+
+    APIG --> EP1
+    APIG --> EP2
+    APIG --> EP3
+    APIG --> EP4
+
+    %% Data Flow Labels
+    UI -.->|Real-time Cost Data JSON Response| LAMBDA
+    CE -.->|Billing Metrics Service Costs Regional Data| LAMBDA
+    DDB -.->|Historical Trends Cached Results| LAMBDA
+
+    %% Styling
+    classDef userLayer fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef apiLayer fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef computeLayer fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef dataLayer fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef awsLayer fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class UI userLayer
+    class APIG apiLayer
+    class LAMBDA computeLayer
+    class CE,CUR,DDB dataLayer
+    class IAM,CW awsLayer

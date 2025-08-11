@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Cost Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .cost-amount {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+        }
+
+        .error {
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .refresh-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 20px auto;
+            display: block;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .service-item, .region-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .service-item:last-child, .region-item:last-child {
+            border-bottom: none;
+        }
+
+        .percentage {
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 AWS Cost Dashboard</h1>
+            <p>Real-time visibility into your AWS spending</p>
+        </div>
+
+        <button class="refresh-btn" onclick="loadAllData()">🔄 Refresh Data</button>
+
+        <div class="dashboard-grid">
+            <!-- Current Costs Card -->
+            <div class="card">
+                <h3>📊 Current Costs</h3>
+                <div id="current-costs" class="loading">Loading current costs...</div>
+            </div>
+
+            <!-- Weekly Trends Card -->
+            <div class="card">
+                <h3>📈 Weekly Trends</h3>
+                <div id="weekly-costs" class="loading">Loading weekly data...</div>
+                <div class="chart-container">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Service Breakdown Card -->
+            <div class="card">
+                <h3>🔧 Top Services</h3>
+                <div id="service-breakdown" class="loading">Loading service data...</div>
+            </div>
+
+            <!-- Regional Breakdown Card -->
+            <div class="card">
+                <h3>🌍 Regional Costs</h3>
+                <div id="regional-breakdown" class="loading">Loading regional data...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Replace with your actual API URL
+        const API_URL = 'https://u91tjvw9n5.execute-api.eu-west-1.amazonaws.com/prod';
+        
+        let weeklyChart = null;
+
+        // Load all dashboard data
+        async function loadAllData() {
+            loadCurrentCosts();
+            loadWeeklyCosts();
+            loadServiceBreakdown();
+            loadRegionalBreakdown();
+        }
+
+        // Load current costs
+        async function loadCurrentCosts() {
+            try {
+                const response = await fetch(`${API_URL}/api/current`);
+                const data = await response.json();
+                
+                const html = `
+                    <div class="metric">
+                        <span>Total Cost (2 days):</span>
+                        <span class="cost-amount">$${data.total_cost.toFixed(4)}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Last Updated:</span>
+                        <span class="metric-value">${new Date(data.last_updated).toLocaleString()}</span>
+                    </div>
+                `;
+                
+                document.getElementById('current-costs').innerHTML = html;
+            } catch (error) {
+                document.getElementById('current-costs').innerHTML = 
+                    `<div class="error">Error loading current costs: ${error.message}</div>`;
+            }
+        }
+
+        // Load weekly costs and create chart
+        async function loadWeeklyCosts() {
+            try {
+                const response = await fetch(`${API_URL}/api/weekly`);
+                const data = await response.json();
+                
+                const html = `
+                    <div class="metric">
+                        <span>Weekly Total:</span>
+                        <span class="cost-amount">$${data.weekly_total.toFixed(4)}</span>
+                    </div>
+                    <div class="metric">
+                        <span>Daily Average:</span>
+                        <span class="metric-value">$${data.average_daily.toFixed(4)}</span>
+                    </div>
+                `;
+                
+                document.getElementById('weekly-costs').innerHTML = html;
+                
+                // Create chart
+                createWeeklyChart(data.daily_breakdown);
+                
+            } catch (error) {
+                document.getElementById('weekly-costs').innerHTML = 
+                    `<div class="error">Error loading weekly costs: ${error.message}</div>`;
+            }
+        }
+
+        // Create weekly cost chart
+        function createWeeklyChart(dailyData) {
+            const ctx = document.getElementById('weeklyChart').getContext('2d');
+            
+            // Destroy existing chart
+            if (weeklyChart) {
+                weeklyChart.destroy();
+            }
+            
+            const labels = dailyData.map(item => new Date(item.date).toLocaleDateString());
+            const costs = dailyData.map(item => item.cost);
+            
+            weeklyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Daily Cost ($)',
+                        data: costs,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(4);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load service breakdown
+        async function loadServiceBreakdown() {
+            try {
+                const response = await fetch(`${API_URL}/api/services`);
+                const data = await response.json();
+                
+                let html = `
+                    <div class="metric">
+                        <span>Total Weekly Cost:</span>
+                        <span class="cost-amount">$${data.total_cost.toFixed(4)}</span>
+                    </div>
+                `;
+                
+                data.services.forEach(service => {
+                    html += `
+                        <div class="service-item">
+                            <span>${service.service}</span>
+                            <div>
+                                <span class="metric-value">$${service.cost.toFixed(4)}</span>
+                                <span class="percentage">${service.percentage.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('service-breakdown').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('service-breakdown').innerHTML = 
+                    `<div class="error">Error loading service data: ${error.message}</div>`;
+            }
+        }
+
+        // Load regional breakdown
+        async function loadRegionalBreakdown() {
+            try {
+                const response = await fetch(`${API_URL}/api/regions`);
+                const data = await response.json();
+                
+                let html = `
+                    <div class="metric">
+                        <span>Total Weekly Cost:</span>
+                        <span class="cost-amount">$${data.total_cost.toFixed(4)}</span>
+                    </div>
+                `;
+                
+                data.regions.forEach(region => {
+                    html += `
+                        <div class="region-item">
+                            <span>${region.region}</span>
+                            <div>
+                                <span class="metric-value">$${region.cost.toFixed(4)}</span>
+                                <span class="percentage">${region.percentage.toFixed(1)}%</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                document.getElementById('regional-breakdown').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('regional-breakdown').innerHTML = 
+                    `<div class="error">Error loading regional data: ${error.message}</div>`;
+            }
+        }
+
+        // Load data when page loads
+        window.addEventListener('load', loadAllData);
+    </script>
+</body>
+</html>
